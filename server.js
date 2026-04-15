@@ -5,6 +5,16 @@ const app = express();
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
+// 비밀 토큰 확인 — 토큰 없으면 차단
+app.use((req, res, next) => {
+  if (req.path === '/health') return next(); // 헬스체크는 통과
+  const token = req.headers['x-access-token'];
+  if (token !== process.env.ACCESS_TOKEN) {
+    return res.status(401).json({ error: '인증 실패' });
+  }
+  next();
+});
+
 async function callGemini(apiKey, history, systemPrompt) {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
