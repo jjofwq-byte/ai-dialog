@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>AI 대화 테스트</title>
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; }
+    textarea { width: 100%; height: 80px; margin: 10px 0; padding: 10px; font-size: 14px; }
+    select { margin: 6px 0 10px; padding: 8px; font-size: 14px; }
+    button { background: #111; color: #fff; border: none; padding: 10px 20px; cursor: pointer; border-radius: 6px; font-size: 14px; margin-right: 8px; }
+    .msg { margin: 10px 0; padding: 12px; border-radius: 8px; line-height: 1.6; }
+    .A { background: #e8f0fe; border-left: 3px solid #1a73e8; }
+    .B { background: #fce8f3; border-left: 3px solid #ce93d8; }
+    .name { font-size: 12px; font-weight: bold; margin-bottom: 6px; color: #555; }
+    #status { font-size: 13px; color: #666; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h2>AI 대화 테스트</h2>
+  <textarea id="topic" placeholder="주제 입력 (예: 원격근무가 생산성에 미치는 영향)"></textarea>
+  <div>
+    <select id="mode">
+      <option value="debate">토론 모드</option>
+      <option value="build">협력 모드</option>
+    </select>
+    <select id="rounds">
+      <option value="2">2 라운드</option>
+      <option value="3" selected>3 라운드</option>
+      <option value="4">4 라운드</option>
+    </select>
+  </div>
+  <button onclick="start()">대화 시작</button>
+  <button onclick="document.getElementById('chat').innerHTML=''">초기화</button>
+  <div id="status"></div>
+  <div id="chat"></div>
+
+  <script>
+    const SERVER = 'https://web-production-064b8d.up.railway.app';
+    const TOKEN = 'EhdRh';
+
+    async function start() {
+      const topic = document.getElementById('topic').value.trim();
+      const mode = document.getElementById('mode').value;
+      const rounds = parseInt(document.getElementById('rounds').value);
+      if (!topic) { alert('주제를 입력해주세요!'); return; }
+      document.getElementById('chat').innerHTML = '';
+      document.getElementById('status').textContent = '요청 중...';
+
+      try {
+        const res = await fetch(SERVER + '/dialog', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-access-token': TOKEN },
+          body: JSON.stringify({ topic, rounds, mode })
+        });
+        if (res.status === 401) throw new Error('인증 실패');
+        if (!res.ok) throw new Error('서버 오류 ' + res.status);
+        const data = await res.json();
+        document.getElementById('status').textContent = '완료! 총 ' + data.dialog.length + '개 발언';
+        data.dialog.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'msg ' + item.role;
+          div.innerHTML = '<div class="name">' + (item.role === 'A' ? '토론자 A' : '토론자 B') + ' · 라운드 ' + item.round + '</div>' + item.text;
+          document.getElementById('chat').appendChild(div);
+        });
+      } catch(e) {
+        document.getElementById('status').textContent = '오류: ' + e.message;
+      }
+    }
+  </script>
+</body>
+</html>
