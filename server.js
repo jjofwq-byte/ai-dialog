@@ -17,7 +17,7 @@ app.use((req, res, next) => {
 
 async function callGemini(apiKey, history, systemPrompt) {
   const res = await fetch(
-`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${apiKey}`,
+`https://generativelanguage.googleapis.com/v1alpha/models/gemini-2.5-flash-preview-04-17:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -36,6 +36,7 @@ async function callGemini(apiKey, history, systemPrompt) {
 }
 
 app.post('/dialog', async (req, res) => {
+    try {
   const { topic, rounds = 3, mode = 'debate' } = req.body;
   const apiKey = process.env.GEMINI_API_KEY;
 
@@ -72,6 +73,9 @@ app.post('/dialog', async (req, res) => {
   }
 
   res.json({ dialog });
+} catch (err) {
+      res.status(500).json({ error: err.message });
+        }
 });
 
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
