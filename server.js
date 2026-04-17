@@ -16,23 +16,30 @@ app.use((req, res, next) => {
 });
 
 async function callGemini(apiKey, history, systemPrompt) {
+  // v1 API + gemini-1.5-flash: system_instruction 필드가 지원되지 않으므로
+  // 시스템 프롬프트를 첫 user 메시지 앞에 병합하여 전달한다.
+  const contents = history.map((m, i) => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{
+      text: i === 0 && m.role !== 'assistant'
+        ? `[지시사항]\n${systemPrompt}\n\n[입력]\n${m.content}`
+        : m.content
+    }]
+  }));
+
   const res = await fetch(
-`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: history.map(m => ({
-          role: m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.content }]
-        }))
-      })
+      body: JSON.stringify({ contents })
     }
   );
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
-  return data.candidates[0].content.parts[0].text;
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Gemini 응답이 비어있습니다: ' + JSON.stringify(data).slice(0, 200));
+  return text;
 }
 
 app.post('/dialog', async (req, res) => {
@@ -42,12 +49,12 @@ app.post('/dialog', async (req, res) => {
 
   const modes = {
     debate: {
-      aSystem: '당신은 토론자 A입니다. 찬성 입장을 취하고 상대 주장을 논리적으로 반박하세요. 한국어로 3-5문장.',
-      bSystem: '당신은 토론자 B입니다. 반대 입장을 취하고 A의 주장을 반박하세요. 한국어로 3-5문장.'
+      aSystem: '당신은 토론자 A입니다. 찬성 입장을 취하고 상대 주장을 논리적으로 반박하세요.',
+      bSystem: '당신은 토론자 B입니다. 반대 입장을 취하고 A의 주장을 반박하세요.'
     },
     build: {
-      aSystem: '당신은 아이디어 제안자입니다. 창의적인 아이디어를 제시하세요. 한국어로 3-5문장.',
-      bSystem: '당신은 아이디어 발전자입니다. 상대 아이디어를 구체화하고 발전시키세요. 한국어로 3-5문장.'
+      aSystem: '당신은 아이디어 제안자입니다. 창의적인 아이디어를 제시하세요.',
+      bSystem: '당신은 아이디어 발전자입니다. 상대 아이디어를 구체화하고 발전시키세요.'
     }
   };
 
