@@ -87,6 +87,9 @@ app.post('/dialog', async (req, res) => {
     const histB = []; 
     const dialog = []; 
 
+    // ==========================================
+    // [Phase 1] 치열한 논리 토론 단계
+    // ==========================================
     for (let r = 1; r <= rounds; r++) {
       // --- [Turn 1: 토론자 A 발언] ---
       const promptA = r === 1
@@ -106,6 +109,30 @@ app.post('/dialog', async (req, res) => {
       histB.push({ role: 'assistant', content: replyB });
       dialog.push({ role: 'B', text: replyB, round: r });
     }
+
+    // ==========================================
+    // [Phase 2] 합의점 도출 및 최종 결론 단계
+    // ==========================================
+    
+    // 1. 토론자 A에게 양보와 타협안 제안 요구
+    const consensusPromptA = `지금까지 치열한 토론이 진행되었습니다. 이제 소모적인 논쟁을 멈추고, 상대방의 유의미한 주장을 일부 수용하여 양측이 모두 동의할 수 있는 '합리적인 타협안(합의점)'을 먼저 제안해주세요.`;
+    histA.push({ role: 'user', content: consensusPromptA });
+    
+    // A의 페르소나를 타협가로 일시 변경
+    const consensusSystemA = '당신은 토론자 A입니다. 이제 무조건적인 반박을 멈추고, 열린 마음으로 양측의 입장을 조율한 훌륭한 타협안을 제시하세요.';
+    const replyConsensusA = await callGemini(apiKey, histA, consensusSystemA);
+    histA.push({ role: 'assistant', content: replyConsensusA });
+    dialog.push({ role: 'A (합의 제안)', text: replyConsensusA, round: 'Conclusion' });
+
+    // 2. 토론자 B에게 A의 타협안 수용 및 최종 결론 요약 요구
+    const consensusPromptB = `상대방(A)이 다음과 같은 타협안을 제시하며 손을 내밀었습니다:\n"${replyConsensusA}"\n\n이 타협안을 긍정적으로 수용하고, 지금까지의 전체 토론 맥락을 융합하여 이 주제에 대한 '최종 결론'을 명확하게 요약하여 마무리해주세요.`;
+    histB.push({ role: 'user', content: consensusPromptB });
+
+    // B의 페르소나를 최종 요약자로 일시 변경
+    const consensusSystemB = '당신은 토론자 B입니다. 상대방의 타협안을 기꺼이 받아들이고, 통찰력 있는 시각으로 전체 논의를 아우르는 최종 결론을 작성하세요.';
+    const replyConsensusB = await callGemini(apiKey, histB, consensusSystemB);
+    histB.push({ role: 'assistant', content: replyConsensusB });
+    dialog.push({ role: 'B (최종 결론)', text: replyConsensusB, round: 'Conclusion' });
 
     // 최종 토론 내역을 클라이언트로 전송
     res.json({ dialog });
